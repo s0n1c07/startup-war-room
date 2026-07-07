@@ -1,0 +1,13 @@
+google-adk
+google-genai
+python-dotenv
+scikit-learn
+pandas
+numpy
+joblib
+ddgs
+optuna
+fastapi
+uvicorn
+google-cloud-firestore
+xgboost

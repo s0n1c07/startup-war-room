@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Startup War Room</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+<style>
+  :root {
+    --wood-dark: #3b2415;
+    --wood-mid: #5a3a22;
+    --wood-light: #7a5232;
+    --gold: #c9a227;
+    --parchment: #f3e6c8;
+    --bubble-bg: #fffaf0;
+    --analyst: #2e7d6b;
+    --skeptic: #8b2e2e;
+    --modeler: #2e548b;
+    --synth: #6b3e8b;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: "Georgia", "Times New Roman", serif;
+    background: radial-gradient(ellipse at top, var(--wood-mid), var(--wood-dark));
+    color: var(--parchment);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .courtroom {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+    position: relative;
+  }
+
+  h1 {
+    text-align: center;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-size: 1.6rem;
+    color: var(--gold);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    font-style: italic;
+    opacity: 0.75;
+    margin-bottom: 28px;
+    font-size: 0.9rem;
+  }
+
+  /* Judge bench */
+  .bench {
+    background: linear-gradient(180deg, #6b4a2b, #4a3018);
+    border: 3px solid var(--gold);
+    border-radius: 14px;
+    padding: 20px 24px;
+    max-width: 640px;
+    margin: 0 auto 40px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .bench::before {
+    content: "⚖️";
+    font-size: 2.2rem;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .bench h2 {
+    margin: 0 0 8px;
+    color: var(--gold);
+    font-size: 1rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .verdict-text {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--parchment);
+    min-height: 24px;
+    white-space: pre-wrap;
+  }
+
+  /* Agent grid */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px 60px;
+    max-width: 720px;
+    margin: 0 auto 40px;
+  }
+
+  .station {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .podium {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.8rem;
+    border: 3px solid var(--gold);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+    background: linear-gradient(160deg, var(--wood-light), var(--wood-dark));
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .station.active .podium {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 4px var(--gold), 0 8px 22px rgba(0,0,0,0.5);
+  }
+
+  .name-tag {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-align: center;
+  }
+  .role-tag {
+    font-size: 0.7rem;
+    opacity: 0.6;
+    text-align: center;
+  }
+
+  .tool-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--gold);
+    color: var(--wood-dark);
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    white-space: nowrap;
+  }
+  .tool-badge.show { opacity: 1; }
+
+  /* Speech bubble */
+  .bubble {
+    position: absolute;
+    bottom: 128px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    width: 280px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bubble-bg);
+    color: #2a1c0f;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 5;
+    text-align: left;
+  }
+  .bubble.show { pointer-events: auto; }
+  .bubble p { margin: 0 0 8px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble ul, .bubble ol { margin: 4px 0 8px 18px; padding: 0; }
+  .bubble strong { color: #6b3e1a; }
+  .bubble::-webkit-scrollbar { width: 6px; }
+  .bubble::-webkit-scrollbar-thumb { background: var(--wood-light); border-radius: 3px; }
+  .bubble::after {
+    content: "";
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 10px 8px 0 8px;
+    border-style: solid;
+    border-color: var(--bubble-bg) transparent transparent transparent;
+  }
+  .bubble.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .station[data-agent="market_analyst"] .podium { border-color: var(--analyst); }
+  .station[data-agent="skeptic"] .podium { border-color: var(--skeptic); }
+  .station[data-agent="financial_modeler"] .podium { border-color: var(--modeler); }
+  .station[data-agent="synthesizer"] .podium { border-color: var(--synth); }
+
+  /* Pitch input */
+  .pitch-box {
+    max-width: 640px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .pitch-box textarea {
+    width: 100%;
+    min-height: 70px;
+    border-radius: 10px;
+    border: 2px solid var(--gold);
+    background: var(--parchment);
+    color: #2a1c0f;
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 10px 12px;
+    resize: vertical;
+  }
+  .pitch-box button {
+    margin-top: 10px;
+    background: var(--gold);
+    color: var(--wood-dark);
+    border: none;
+    padding: 10px 22px;
+    border-radius: 20px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .pitch-box button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .status-line {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    min-height: 18px;
+  }
+
+  /* Transcript + history panel */
+  .records {
+    max-width: 900px;
+    margin: 40px auto 0;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 20px;
+  }
+  .panel {
+    background: rgba(0,0,0,0.25);
+    border: 2px solid var(--gold);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .panel h3 {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .case-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  .case-list::-webkit-scrollbar { width: 6px; }
+  .case-list::-webkit-scrollbar-thumb { background: var(--wood-light); border-radius: 3px; }
+  .case-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px 6px;
+    font-size: 0.78rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    opacity: 0.85;
+  }
+  .case-list li:hover { opacity: 1; background: rgba(255,255,255,0.05); }
+  .case-list li.active { color: var(--gold); opacity: 1; }
+  .case-list .case-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .case-list .delete-btn {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid var(--skeptic);
+    color: var(--skeptic);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    font-size: 0.7rem;
+    cursor: pointer;
+    opacity: 0.7;
+  }
+  .case-list .delete-btn:hover { opacity: 1; background: var(--skeptic); color: var(--parchment); }
+
+  .transcript {
+    max-height: 320px;
+    overflow-y: auto;
+    font-size: 0.82rem;
+  }
+  .transcript-entry {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .transcript-entry .who {
+    font-weight: bold;
+    color: var(--gold);
+    text-transform: capitalize;
+    margin-bottom: 4px;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+  }
+  .transcript-entry .body p { margin: 0 0 6px; }
+  .transcript-entry .body:not(:last-child) { margin-bottom: 6px; }
+  .transcript-entry .tool-note {
+    font-style: italic;
+    opacity: 0.6;
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="courtroom">
+  <h1>Startup War Room</h1>
+  <div class="subtitle">Present your pitch. The panel will deliberate.</div>
+
+  <div class="bench">
+    <h2>The Verdict</h2>
+    <div class="verdict-text" id="verdict">Awaiting a case to hear...</div>
+  </div>
+
+  <div class="grid">
+    <div class="station" data-agent="market_analyst">
+      <div class="podium">📊</div>
+      <div class="tool-badge" id="tool-market_analyst"></div>
+      <div class="name-tag">Market Analyst</div>
+      <div class="role-tag">researches the space</div>
+      <div class="bubble" id="bubble-market_analyst"></div>
+    </div>
+    <div class="station" data-agent="financial_modeler">
+      <div class="podium">🧮</div>
+      <div class="tool-badge" id="tool-financial_modeler"></div>
+      <div class="name-tag">Financial Modeler</div>
+      <div class="role-tag">runs the numbers</div>
+      <div class="bubble" id="bubble-financial_modeler"></div>
+    </div>
+    <div class="station" data-agent="skeptic">
+      <div class="podium">🔥</div>
+      <div class="tool-badge" id="tool-skeptic"></div>
+      <div class="name-tag">The Skeptic</div>
+      <div class="role-tag">argues against you</div>
+      <div class="bubble" id="bubble-skeptic"></div>
+    </div>
+    <div class="station" data-agent="synthesizer">
+      <div class="podium">💡</div>
+      <div class="tool-badge" id="tool-synthesizer"></div>
+      <div class="name-tag">Synthesizer</div>
+      <div class="role-tag">revises the pitch</div>
+      <div class="bubble" id="bubble-synthesizer"></div>
+    </div>
+  </div>
+
+  <div class="pitch-box">
+    <textarea id="ideaInput" placeholder="Describe your business idea..."></textarea>
+    <br />
+    <button id="submitBtn">Present Case</button>
+    <div class="status-line" id="statusLine"></div>
+  </div>
+
+  <div class="records">
+    <div class="panel">
+      <h3>Case Files</h3>
+      <ul class="case-list" id="caseList">
+        <li style="opacity:0.5; cursor: default;">No past cases yet</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Full Transcript</h3>
+      <div class="transcript" id="transcript"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ws = new WebSocket(`ws://${location.host}/ws/pitch`);
+const submitBtn = document.getElementById("submitBtn");
+const ideaInput = document.getElementById("ideaInput");
+const statusLine = document.getElementById("statusLine");
+const verdict = document.getElementById("verdict");
+const transcriptEl = document.getElementById("transcript");
+const caseListEl = document.getElementById("caseList");
+
+let bubbleTimers = {};
+let currentPitchId = null;
+
+function renderMarkdown(text) {
+  try {
+    return marked.parse(text);
+  } catch (e) {
+    return text;
+  }
+}
+
+function attachHoverPause(bubble, author) {
+  if (bubble.dataset.hoverBound) return;
+  bubble.dataset.hoverBound = "1";
+  bubble.addEventListener("mouseenter", () => clearTimeout(bubbleTimers[author]));
+  bubble.addEventListener("mouseleave", () => scheduleHide(bubble, author));
+}
+
+function scheduleHide(bubble, author) {
+  const station = document.querySelector(`.station[data-agent="${author}"]`);
+  clearTimeout(bubbleTimers[author]);
+  bubbleTimers[author] = setTimeout(() => {
+    bubble.classList.remove("show");
+    station.classList.remove("active");
+  }, 9000);
+}
+
+function showBubble(author, text) {
+  const bubble = document.getElementById(`bubble-${author}`);
+  const station = document.querySelector(`.station[data-agent="${author}"]`);
+  if (!bubble || !station) return;
+
+  bubble.innerHTML = renderMarkdown(text);
+  bubble.classList.add("show");
+  station.classList.add("active");
+  attachHoverPause(bubble, author);
+  scheduleHide(bubble, author);
+}
+
+function showToolBadge(author, tool) {
+  const badge = document.getElementById(`tool-${author}`);
+  if (!badge) return;
+  badge.textContent = `🔧 ${tool}`;
+  badge.classList.add("show");
+  setTimeout(() => badge.classList.remove("show"), 3000);
+}
+
+let lastTranscriptAuthor = null;
+let lastTranscriptBlock = null;
+
+function appendTranscript(author, text, kind) {
+  if (author !== lastTranscriptAuthor || !lastTranscriptBlock) {
+    lastTranscriptBlock = document.createElement("div");
+    lastTranscriptBlock.className = "transcript-entry";
+    lastTranscriptBlock.innerHTML = `<div class="who">${author}</div><div class="block-body"></div>`;
+    transcriptEl.appendChild(lastTranscriptBlock);
+    lastTranscriptAuthor = author;
+  }
+
+  const body = lastTranscriptBlock.querySelector(".block-body");
+  const line = document.createElement("div");
+  if (kind === "tool") {
+    line.className = "tool-note";
+    line.textContent = `🔧 called ${text}`;
+  } else {
+    line.className = "body";
+    line.innerHTML = renderMarkdown(text);
+  }
+  body.appendChild(line);
+  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+}
+
+function resetTranscriptGrouping() {
+  lastTranscriptAuthor = null;
+  lastTranscriptBlock = null;
+}
+
+async function loadCaseList() {
+  try {
+    const res = await fetch("/api/pitches");
+    const pitches = await res.json();
+    caseListEl.innerHTML = "";
+    if (!pitches.length) {
+      caseListEl.innerHTML = '<li style="opacity:0.5; cursor: default;">No past cases yet</li>';
+      return;
+    }
+    pitches.forEach((p) => {
+      const li = document.createElement("li");
+
+      const label = document.createElement("span");
+      label.className = "case-label";
+      label.textContent = p.idea.length > 40 ? p.idea.slice(0, 37) + "..." : p.idea;
+      label.title = p.idea;
+      label.addEventListener("click", () => loadCase(p.id, li));
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "delete-btn";
+      delBtn.textContent = "×";
+      delBtn.title = "Delete this case";
+      delBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Delete case "${p.idea}"? This cannot be undone.`)) return;
+        await fetch(`/api/pitches/${p.id}`, { method: "DELETE" });
+        if (currentPitchId === p.id) {
+          transcriptEl.innerHTML = "";
+          resetTranscriptGrouping();
+          verdict.textContent = "Awaiting a case to hear...";
+          verdict.dataset.hasVerdict = "0";
+          currentPitchId = null;
+        }
+        loadCaseList();
+      });
+
+      li.appendChild(label);
+      li.appendChild(delBtn);
+      caseListEl.appendChild(li);
+    });
+  } catch (e) {
+    console.error("Failed to load case list", e);
+  }
+}
+
+async function loadCase(pitchId, liEl) {
+  document.querySelectorAll(".case-list li").forEach((el) => el.classList.remove("active"));
+  if (liEl) liEl.classList.add("active");
+  currentPitchId = pitchId;
+
+  const res = await fetch(`/api/pitches/${pitchId}`);
+  const data = await res.json();
+  if (data.error) return;
+
+  transcriptEl.innerHTML = "";
+  resetTranscriptGrouping();
+  let lastSynth = "";
+  let lastVerdict = "";
+  data.messages.forEach((m) => {
+    if (m.event_type === "tool_call") {
+      return; // tool calls are still stored in the DB, just not displayed
+    }
+    appendTranscript(m.author, m.text, "speech");
+    if (m.author === "synthesizer") lastSynth = m.text;
+    if (m.author === "judge") lastVerdict = m.text;
+  });
+  verdict.textContent = lastVerdict || "(no verdict recorded for this case -- judge may not have run)";
+  verdict.dataset.hasVerdict = lastVerdict ? "1" : "0";
+  statusLine.textContent = `Viewing past case: "${data.pitch.idea}"`;
+}
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+
+  if (msg.type === "start") {
+    verdict.textContent = "The panel is deliberating -- verdict pending...";
+    verdict.dataset.hasVerdict = "0";
+    transcriptEl.innerHTML = "";
+    resetTranscriptGrouping();
+    currentPitchId = msg.pitch_id;
+  } else if (msg.type === "tool_call") {
+    showToolBadge(msg.author, msg.tool);
+  } else if (msg.type === "speech") {
+    showBubble(msg.author, msg.text);
+    appendTranscript(msg.author, msg.text, "speech");
+    if (msg.author === "judge") {
+      verdict.textContent = msg.text;
+      verdict.dataset.hasVerdict = "1";
+    }
+    // synthesizer's pitch drafts intentionally do NOT touch the bench --
+    // the bench is reserved for the judge's verdict only.
+  } else if (msg.type === "info") {
+    statusLine.textContent = msg.text;
+  } else if (msg.type === "error") {
+    statusLine.textContent = "Error: " + msg.text;
+    submitBtn.disabled = false;
+  } else if (msg.type === "done") {
+    statusLine.textContent = "Deliberation complete.";
+    submitBtn.disabled = false;
+    loadCaseList();
+  }
+};
+
+ws.onopen = () => {
+  statusLine.textContent = "Connected to the courtroom.";
+  loadCaseList();
+};
+ws.onclose = () => {
+  statusLine.textContent = "Disconnected.";
+};
+
+submitBtn.addEventListener("click", () => {
+  const idea = ideaInput.value.trim();
+  if (!idea) return;
+  submitBtn.disabled = true;
+  statusLine.textContent = "Presenting case...";
+  verdict.textContent = "Awaiting the panel's first remarks...";
+  ws.send(JSON.stringify({ idea }));
+});
+</script>
+</body>
+</html>
