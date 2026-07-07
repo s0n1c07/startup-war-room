@@ -116,18 +116,3 @@ startup-war-room/
 ├── server.py                  # FastAPI + WebSocket + Firestore
 └── requirements.txt
 ```
-
-## Honest limitations
-
-- Free-tier hosting means occasional cold-start delays (~30-60s after idling)
-- The ML model's real-world dataset is small (~900 rows); test-set metrics
-  should be read with appropriate uncertainty
-- Search relies on DuckDuckGo scraping (`ddgs`), which can be unreliable from
-  shared cloud IPs — mitigated with timeouts and graceful degradation, but not
-  as robust as a paid search API would be
-
-## Built for
-
-Google's "AI Agents: Intensive Vibe Coding" capstone (Kaggle,
-`vibecoding-agents-capstone-project`), using ADK + Gemini as required by the
-course.
