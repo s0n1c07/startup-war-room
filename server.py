@@ -151,6 +151,7 @@ async def pitch_ws(websocket: WebSocket):
             content = types.Content(role="user", parts=[types.Part(text=idea)])
 
             pitch_id = save_pitch(idea)
+            print(f"[pitch {pitch_id}] started: {idea[:60]}", flush=True)
             await websocket.send_json({"type": "start", "idea": idea, "pitch_id": pitch_id})
 
             already_blocked = False
@@ -166,6 +167,7 @@ async def pitch_ws(websocket: WebSocket):
                             for part in event.content.parts:
                                 fn_call = getattr(part, "function_call", None)
                                 if fn_call:
+                                    print(f"[pitch {pitch_id}] {author} -> tool_call: {fn_call.name}", flush=True)
                                     save_message(pitch_id, author, "tool_call", fn_call.name, seq)
                                     seq += 1
                                     await websocket.send_json(
@@ -183,6 +185,7 @@ async def pitch_ws(websocket: WebSocket):
                                         if already_blocked:
                                             continue
                                         already_blocked = True
+                                    print(f"[pitch {pitch_id}] {author} -> speech ({len(text)} chars)", flush=True)
                                     save_message(pitch_id, author, "speech", text, seq)
                                     seq += 1
                                     await websocket.send_json(
@@ -194,6 +197,7 @@ async def pitch_ws(websocket: WebSocket):
                                     )
                     break
                 except Exception as e:
+                    print(f"[pitch {pitch_id}] EXCEPTION: {e}", flush=True)
                     if (
                         "UNAVAILABLE" in str(e) or "RESOURCE_EXHAUSTED" in str(e)
                     ) and attempt < retries - 1:
@@ -205,6 +209,7 @@ async def pitch_ws(websocket: WebSocket):
                         await websocket.send_json({"type": "error", "text": str(e)})
                         break
 
+            print(f"[pitch {pitch_id}] done", flush=True)
             await websocket.send_json({"type": "done"})
     except WebSocketDisconnect:
         pass
