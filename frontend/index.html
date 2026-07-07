@@ -396,7 +396,8 @@
 </div>
 
 <script>
-const ws = new WebSocket(`ws://${location.host}/ws/pitch`);
+const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
+const ws = new WebSocket(`${wsProtocol}//${location.host}/ws/pitch`);
 const submitBtn = document.getElementById("submitBtn");
 const ideaInput = document.getElementById("ideaInput");
 const statusLine = document.getElementById("statusLine");
