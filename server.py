@@ -38,14 +38,26 @@ from agents.orchestrator import root_agent
 app = FastAPI()
 APP_NAME = "startup_war_room"
 
-# On Cloud Run, this uses the attached service account automatically (no
-# key file needed). For local testing, run:
-#   gcloud auth application-default login
-# once, and set GOOGLE_CLOUD_PROJECT in your .env to your project ID.
-db = firestore.Client(
-    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-    database=os.getenv("FIRESTORE_DATABASE_ID", "warroomdb"),
-)
+# On Render (or any non-local host), authenticate via a service account
+# key stored in an env var, since there's no local gcloud login there.
+# Locally, this falls back to `gcloud auth application-default login`.
+from google.oauth2 import service_account
+
+_sa_json = os.getenv("FIRESTORE_SERVICE_ACCOUNT_JSON")
+if _sa_json:
+    _creds = service_account.Credentials.from_service_account_info(
+        json.loads(_sa_json)
+    )
+    db = firestore.Client(
+        project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+        database=os.getenv("FIRESTORE_DATABASE_ID", "warroomdb"),
+        credentials=_creds,
+    )
+else:
+    db = firestore.Client(
+        project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+        database=os.getenv("FIRESTORE_DATABASE_ID", "warroomdb"),
+    )
 
 PITCHES_COLLECTION = "pitches"
 MESSAGES_SUBCOLLECTION = "messages"
