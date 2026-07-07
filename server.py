@@ -39,7 +39,7 @@ from agents.orchestrator import root_agent
 app = FastAPI()
 APP_NAME = "startup_war_room"
 
-FIRESTORE_TIMEOUT_SECONDS = 10
+FIRESTORE_TIMEOUT_SECONDS = 25
 _db_executor = ThreadPoolExecutor(max_workers=4)
 
 # On Render (or any non-local host), authenticate via a service account
@@ -65,6 +65,21 @@ else:
 
 PITCHES_COLLECTION = "pitches"
 MESSAGES_SUBCOLLECTION = "messages"
+
+
+@app.on_event("startup")
+async def warm_up_firestore():
+    """Fires one throwaway Firestore read at startup so the gRPC channel
+    is already warm by the time a real user submits a pitch, instead of
+    the first user paying the cold-start connection cost."""
+    def _warm():
+        try:
+            list(db.collection(PITCHES_COLLECTION).limit(1).stream())
+            print("[firestore] warm-up read succeeded", flush=True)
+        except Exception as e:
+            print(f"[firestore] warm-up read failed (non-fatal): {e}", flush=True)
+
+    await asyncio.get_event_loop().run_in_executor(_db_executor, _warm)
 
 
 def _save_pitch_blocking(idea: str) -> str:
