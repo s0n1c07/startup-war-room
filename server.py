@@ -32,11 +32,15 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from google.cloud import firestore
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
 from agents.orchestrator import root_agent
 
 app = FastAPI()
 APP_NAME = "startup_war_room"
+
+FIRESTORE_TIMEOUT_SECONDS = 10
+_db_executor = ThreadPoolExecutor(max_workers=4)
 
 # On Render (or any non-local host), authenticate via a service account
 # key stored in an env var, since there's no local gcloud login there.
@@ -63,7 +67,7 @@ PITCHES_COLLECTION = "pitches"
 MESSAGES_SUBCOLLECTION = "messages"
 
 
-def save_pitch(idea: str) -> str:
+def _save_pitch_blocking(idea: str) -> str:
     doc_ref = db.collection(PITCHES_COLLECTION).document()
     doc_ref.set(
         {"idea": idea, "created_at": datetime.now(timezone.utc).isoformat()}
@@ -71,7 +75,23 @@ def save_pitch(idea: str) -> str:
     return doc_ref.id
 
 
-def save_message(pitch_id: str, author: str, event_type: str, text: str, seq: int):
+def save_pitch(idea: str) -> str | None:
+    """Saves a pitch to Firestore with a hard timeout. Returns None (and
+    logs a warning) if Firestore hangs or fails, instead of blocking the
+    whole pipeline forever -- persistence failing shouldn't stop the demo
+    from running."""
+    future = _db_executor.submit(_save_pitch_blocking, idea)
+    try:
+        return future.result(timeout=FIRESTORE_TIMEOUT_SECONDS)
+    except FutureTimeoutError:
+        print(f"[firestore] save_pitch TIMED OUT after {FIRESTORE_TIMEOUT_SECONDS}s", flush=True)
+        return None
+    except Exception as e:
+        print(f"[firestore] save_pitch ERROR: {e}", flush=True)
+        return None
+
+
+def _save_message_blocking(pitch_id: str, author: str, event_type: str, text: str, seq: int):
     db.collection(PITCHES_COLLECTION).document(pitch_id).collection(
         MESSAGES_SUBCOLLECTION
     ).document().set(
@@ -83,6 +103,20 @@ def save_message(pitch_id: str, author: str, event_type: str, text: str, seq: in
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
     )
+
+
+def save_message(pitch_id: str | None, author: str, event_type: str, text: str, seq: int):
+    if pitch_id is None:
+        return  # earlier save_pitch failed -- skip persistence, keep the demo running
+    future = _db_executor.submit(
+        _save_message_blocking, pitch_id, author, event_type, text, seq
+    )
+    try:
+        future.result(timeout=FIRESTORE_TIMEOUT_SECONDS)
+    except FutureTimeoutError:
+        print(f"[firestore] save_message TIMED OUT after {FIRESTORE_TIMEOUT_SECONDS}s", flush=True)
+    except Exception as e:
+        print(f"[firestore] save_message ERROR: {e}", flush=True)
 
 
 @app.get("/api/pitches")
@@ -141,6 +175,8 @@ async def pitch_ws(websocket: WebSocket):
             if not idea:
                 continue
 
+            print(f"[ws] received pitch text: {idea[:60]}", flush=True)
+
             session_service = InMemorySessionService()
             session = await session_service.create_session(
                 app_name=APP_NAME, user_id="web_user"
@@ -150,6 +186,7 @@ async def pitch_ws(websocket: WebSocket):
             )
             content = types.Content(role="user", parts=[types.Part(text=idea)])
 
+            print(f"[ws] about to save_pitch...", flush=True)
             pitch_id = save_pitch(idea)
             print(f"[pitch {pitch_id}] started: {idea[:60]}", flush=True)
             await websocket.send_json({"type": "start", "idea": idea, "pitch_id": pitch_id})
