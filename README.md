@@ -6,8 +6,6 @@ trained ML model, arguing against it, revising the pitch, and finally delivering
 an independent verdict. Built with Google's Agent Development Kit (ADK) and the
 Gemini API, deployed live with a persistent case history.
 
-**Live demo:** https://startup-war-room.onrender.com
-*(free-tier hosting — may take ~30-60s to wake up if idle)*
 
 ---
 
